@@ -102,7 +102,7 @@ ENV/
 
 # No images
 *.png
-/cleverhans_rig/examples/nips17_adversarial_competition/dataset/
+/cleverhans_rig/examples/nips17_adversarial_competition/dataset/images
 
 # No NN models or checkpoints
 *.ckpt*
