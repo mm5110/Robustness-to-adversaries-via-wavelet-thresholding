@@ -99,3 +99,10 @@ ENV/
 
 # mypy
 .mypy_cache/
+
+# No images
+*.png
+/cleverhans_rig/examples/nips17_adversarial_competition/dataset/
+
+# No NN models or checkpoints
+*.ckpt*
