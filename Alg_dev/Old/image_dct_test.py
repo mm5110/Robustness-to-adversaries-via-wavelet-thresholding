@@ -45,7 +45,7 @@ def plot_dct_coeffs_dist(coefficients):
 	#Plot log distribution of coefficients
 	plt.figure(1)
 	plt.subplot(121)
-	plt.scatter(range(coefficients.ravel().size), np.log10(np.abs(coefficients.ravel())), c='#348ABD', alpha=.3);
+	plt.scatter(range(coefficients.ravel().size), np.abs(coefficients.ravel()), c='#348ABD', alpha=.3);
 	plt.title('DCT Coefficient Amplitude vs. Order of Coefficient');
 	plt.xlabel('Order of DCT Coefficients');
 	plt.ylabel('DCT Coefficients Amplitude in log scale');
