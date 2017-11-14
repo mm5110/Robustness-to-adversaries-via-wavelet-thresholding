@@ -1,0 +1,266 @@
+# Demonstrates the implementation of a wavelet decomposition and reconstruction filter in pytorch and tests that the reconstructed
+# and original are classified as the same.
+
+
+import pywt
+import matplotlib.pyplot as plt
+import numpy as np
+from PIL import Image
+
+
+import torch
+from torchvision import models, transforms
+from torch.autograd import Variable
+from torch import nn
+from torch.autograd.gradcheck import zero_gradients
+from torch.utils.data import Dataset, DataLoader
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+# GLOBAL VARIABLES
+wavelet = 'bior2.2'
+levels = 5 # Due to he fact we scale all images to be 3 x 256 x256
+K = 40
+channel_means = [0.485, 0.456, 0.406]
+channel_stds = [0.229, 0.224, 0.225]
+perturbation = 'dumb'
+
+
+# img_path = 'butterfly.jpg'
+img_path = 'car.png'
+# img_path = 'panda.png'
+
+
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+# PLOT SELECTED WAVELET
+w=pywt.Wavelet('bior2.2')
+# plt.plot(w.dec_hi[::-1], label="dec hi")
+# plt.plot(w.dec_lo[::-1], label="dec lo")
+# plt.plot(w.rec_hi, label="rec hi")
+# plt.plot(w.rec_lo, label="rec lo")
+# plt.title("Bior 2.2 Wavelets")
+# plt.legend()
+# plt.show()
+
+
+# DEFINE WAVELET FILTERS AND WAVELET TRANSFORMS
+dec_hi = torch.Tensor(w.dec_hi[::-1]) 
+dec_lo = torch.Tensor(w.dec_lo[::-1])
+rec_hi = torch.Tensor(w.rec_hi)
+rec_lo = torch.Tensor(w.rec_lo)
+
+filters = torch.stack([dec_lo.unsqueeze(0)*dec_lo.unsqueeze(1),
+                       dec_lo.unsqueeze(0)*dec_hi.unsqueeze(1),
+                       dec_hi.unsqueeze(0)*dec_lo.unsqueeze(1),
+                       dec_hi.unsqueeze(0)*dec_hi.unsqueeze(1)], dim=0).double()
+
+inv_filters = torch.stack([rec_lo.unsqueeze(0)*rec_lo.unsqueeze(1),
+                           rec_lo.unsqueeze(0)*rec_hi.unsqueeze(1),
+                           rec_hi.unsqueeze(0)*rec_lo.unsqueeze(1),
+                           rec_hi.unsqueeze(0)*rec_hi.unsqueeze(1)], dim=0).double()
+
+
+# NOTE FOR FUTURE - WE DO NOT CURRENTLY HANDLE THE BORDER CASES WHICH LEADS TO ERRORS DURING RECONSTRUCTION
+def wt(vimg, levels=1):
+    h = vimg.size(2)
+    w = vimg.size(3)
+    padded = torch.nn.functional.pad(vimg,(2,2,2,2))
+    res = torch.nn.functional.conv2d(padded, Variable(filters[:,None]),stride=2)
+    if levels>1:
+        res[:,:1] = wt(res[:,:1],levels-1)
+    res = res.view(-1,2,h//2,w//2).transpose(1,2).contiguous().view(-1,1,h,w)
+    return res
+
+
+def iwt(vres, levels=1):
+    h = vres.size(2)
+    w = vres.size(3)
+    res = vres.view(-1,h//2,2,w//2).transpose(1,2).contiguous().view(-1,4,h//2,w//2).clone()
+    if levels>1:
+        res[:,:1] = iwt(res[:,:1], levels=levels-1)
+    res = torch.nn.functional.conv_transpose2d(res, Variable(inv_filters[:,None]),stride=2)
+    res = res[:,:,2:-2,2:-2]
+    return res
+
+
+def calc_wav_coeffs_from_image_tensor(vimg, levels=1):
+    # Input: takes tensor of pixel values with dimensions as [batch][channel][height][width]
+    # Output: returns tensor of wavelet coefficients with dimensions as [batch][channel][height][width]
+    # A given layer will contain the 2D wavelet transform of a given 2D layer with coars information top left corner
+    c = vimg.size(1)
+    coeffs_list = []
+    for i in range(c):
+        layer = vimg[0][i]
+        layer = layer[None][None]
+        layer_coeffs = wt(layer, levels)
+        coeffs_list.append(layer_coeffs)
+    coeffs = torch.cat(coeffs_list, dim=1)
+    return coeffs
+
+
+def calc_image_tensor_from_wav_coeffs(coeffs, levels=1):
+    # Input: takes tensor of wavelet coefficients with dimensions as [batch][channel][height][width]
+    # Output: returns tensor of pixel values with dimensions as [batch][channel][height][width]
+    c = coeffs.size(1)
+    image_list = []
+    for i in range(c):
+        layer = coeffs[0][i]
+        layer = layer[None][None]
+        layer_image = iwt(layer, levels)
+        image_list.append(layer_image)
+    image = torch.cat(image_list, dim=1)
+    image = image.double()
+    return image
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+# IMAGE HANDLING FUNCTIONS AND TRANSFORMS
+
+normalize = transforms.Normalize(
+    mean=channel_means,
+    std=channel_stds
+)
+preprocess = transforms.Compose([
+    transforms.Scale(256),
+    transforms.CenterCrop(224),
+    transforms.ToTensor(),
+    normalize
+])
+
+
+def load_image(img_path):
+    img_pil = Image.open(img_path).convert('RGB')
+    img_tensor = preprocess(img_pil)
+    img_tensor.unsqueeze_(0) # This line is if want to process a batch of images in a 4d array/ tensor
+    return img_pil, img_tensor
+
+
+def get_image_from_tensor(img_tensor):
+  temp = img_tensor.numpy()
+  temp = np.squeeze(temp, axis=0)
+  for i in range(3):
+    temp[i] = temp[i]*channel_stds[i] + channel_means[i]
+  temp = temp*256
+  temp = np.swapaxes(temp, 0, 1)
+  temp = np.swapaxes(temp, 1, 2)
+  temp = temp.clip(0, 255)
+  temp = temp.astype('uint8')
+  img_pil = Image.fromarray(temp)
+  return img_pil
+
+
+def plot_images_sbs(original, mask, peturbed, original_class, peturbed_class, mask_image_enhance, figure_num=1):
+  plt.figure(figure_num, figsize=(20,10))
+  plt.subplot(1,3,1)
+  plt.title('Original');
+  plt.xlabel('Classification: ' + original_class);
+  plt.imshow(original)
+  plt.subplot(1,3,2)
+  plt.title('Mask');
+  plt.xlabel('Brightened by factor ' + str(mask_image_enhance));
+  plt.imshow(mask)
+  plt.subplot(1,3,3)
+  plt.title('Perturbed')
+  plt.xlabel('Classification: ' + peturbed_class);
+  plt.imshow(peturbed)
+  plt.show()
+  return None 
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #     
+
+# SWA ATTACK ALGORITHM
+def get_K_target_coeff_indices(img_coeffs, K):
+  # Inputs: the wavelet coefficient array of an image and K - the number of coefficients of interest
+  # Output: locations of the K largest coefficients in the wavelet coefficient array as a torch tensor
+  img_coeffs_array = img_coeffs.data.numpy()
+  coeff_size_order = np.dstack(np.unravel_index(np.argsort(img_coeffs_array.ravel()), (img_coeffs_array.shape[0], img_coeffs_array.shape[1], img_coeffs_array.shape[2], img_coeffs_array.shape[3])))
+  target_coeffs = coeff_size_order[0][0:K]
+  target_coeffs = torch.from_numpy(target_coeffs)
+  return target_coeffs
+
+def get_swa_coeff_array(img_coeffs, tc, perturbation='none'):
+  # Input: the wavelet coefficient array of an image, the locations of the target indices and the perturbation to apply
+  # Output: a peturbed coefficient array
+  img_coeffs_perturbed = img_coeffs.clone()
+
+  if perturbation == 'none':
+    print('Applying perturbation type: ' + perturbation)
+    return img_coeffs_perturbed
+
+  elif perturbation == 'dumb':
+    print('Applying perturbation type: ' + perturbation)
+    for i in range(len(tc)):
+      img_coeffs_perturbed.data[tc[i][0]][tc[i][1]][tc[i][2]][tc[3]] = img_coeffs_perturbed.data[tc[i][0]][tc[i][1]][tc[i][2]][tc[3]]*(5*np.random.uniform(0,1)+0.1)
+    return img_coeffs_perturbed
+  else:
+    print('Perturbation type not recognised, no perturbation applied - returning original coefficients')
+    return img_coeffs_perturbed
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #     
+
+# IMPORT NETWORK:
+# Import a pre-trained squeezenet
+model = models.squeezenet1_1(pretrained=True).double()
+# Define the loss function as the cross entropy
+loss = nn.CrossEntropyLoss()
+# Sets the module into evaluation mode - set self.train(False)
+model.eval();
+
+# Classify an image using the defined classifier network / model
+def classify_image(img_tensor, classifier, labels):
+  output = classifier(Variable(img_tensor, requires_grad=True))
+  classification = labels[output.data.numpy().argmax()]
+  return output, classification
+
+
+
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+# ACTUAL PROGRAM
+
+# LOAD CLASSES
+labels = eval(open('classes.txt').read())
+
+# LOAD IN IMAGE TO PROCESS
+image_pil, x = load_image(img_path)
+
+vx = Variable(x, requires_grad=True).double()
+
+vx_coeffs = calc_wav_coeffs_from_image_tensor(vx, levels)
+
+tc = get_K_target_coeff_indices(vx_coeffs, K)
+
+vx_coeffs_perturbed = get_swa_coeff_array(vx_coeffs, tc, perturbation)
+
+vx_recon = calc_image_tensor_from_wav_coeffs(vx_coeffs_perturbed, levels)
+
+img_out, img_class = classify_image(vx.data, model, labels)
+recon_out, recon_class = classify_image(vx_recon.data, model, labels)
+
+print('Original image -  classification: ' + str(img_class) + ', confidence: ' + str(img_out.max()))
+print('Reconstructed image -  classification: ' + str(recon_class) + ', confidence: ' + str(recon_out.max()))
+
+
+# VIEW IMAGES
+original_img = get_image_from_tensor(vx.data)
+reconstructed_img = get_image_from_tensor(vx_recon.data)
+
+plt.figure(1, figsize=(20,10))
+plt.subplot(1,2,1)
+plt.title('Original Image');
+plt.imshow(original_img)
+plt.subplot(1,2,2)
+plt.title('Pertrubed Image');
+plt.imshow(reconstructed_img);
+plt.show()
+
+
+
+
+
+
+

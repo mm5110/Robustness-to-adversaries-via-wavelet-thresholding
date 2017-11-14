@@ -140,10 +140,10 @@ def plot_comparison_of_coeffs_dist(coefficients1, coefficients2, figure_numb=1, 
 
 
 #Define global parameters
-wavelet = 'db1'
+wavelet = 'db4'
 image_path = "butterfly.jpg"
 min_coefficient_val = 10
-K = 100
+K = 40
 
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
@@ -160,6 +160,8 @@ img=im.open(image_path)
 
 #Convert image to numpy array in format [channel][row][column]
 img_array = get_array_from_image(img)
+# print(img_array[0][50][50])
+# print(img_array[:][200][200])
 
 
 #Calculate the wavelet coefficients of the image from the image array
@@ -183,6 +185,11 @@ img_array_mask = np.add(img_array_perturbed, (-1)*img_array_reconstructed)
 img_perturbed = get_image_from_array(img_array_perturbed)
 img_reconstructed = get_image_from_array(img_array_reconstructed)
 img_mask = get_image_from_array(img_array_mask)
+
+
+# print(img_array_perturbed[:][50][50])
+# print(img_array_perturbed[:][200][200])
+
 
 
 # Plot to compare output
