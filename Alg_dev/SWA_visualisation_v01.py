@@ -21,17 +21,17 @@ from torch.utils.data import Dataset, DataLoader
 # GLOBAL VARIABLES
 wavelet = 'bior2.2'
 levels = 2 # (5 is limit) Due to he fact we scale all images to be 3 x 256 x256
-K = 10000
+K = 50
 channel_means = [0.485, 0.456, 0.406]
 channel_stds = [0.229, 0.224, 0.225]
 mask_image_enhance = 100
 steps = 40
 eps = 2 * 8 / 225
-step_alpha = 0.01
+step_alpha = 1
 
 
-# img_path = 'butterfly.jpg'
-img_path = 'car.png'
+img_path = 'butterfly.jpg'
+# img_path = 'car.png'
 # img_path = 'panda.png'
 
 
@@ -264,6 +264,8 @@ def create_adversary_nontargeted(original_img_tensor, levels, K, labels):
 # IMPORT NETWORK:
 # Import a pre-trained squeezenet
 model = models.squeezenet1_1(pretrained=True).double()
+# model = models.inception_v3(pretrained=True).double()
+
 # Define the loss function as the cross entropy
 loss = nn.CrossEntropyLoss()
 # Sets the module into evaluation mode - set self.train(False)
@@ -284,30 +286,12 @@ def classify_image(img_tensor, classifier, labels):
 # LOAD CLASSES
 labels = eval(open('classes.txt').read())
 
-
-# Check that argmax section is working correctly
-x = torch.rand(1,3,5,5)
-print(x)
-tc = get_K_target_coeff_indices(x, 5)
-print(tc[3][2])
-print(tc)
-for i in range(len(tc)):
-  print(x[tc[i][0]][tc[i][1]][tc[i][2]][tc[i][3]])
-
-
-
 # LOAD IN IMAGE TO PROCESS
 run = 1
 
 if run == 1:
   original_img_pil, original_img_tensor, original_img_tensor_norm = load_image(img_path)
-  print("UN - NORMALISED:")
-  print(original_img_tensor)
-  print("NORMALISED:")
-  print(original_img_tensor_norm)
-
   pertubed_img_pil, perturbed_img_tensor, mask_img_pil, mask_img_tensor, original_classification, original_confidence, perturbed_classification, classification_confidence, exit_status = create_adversary_nontargeted(original_img_tensor_norm, levels, K, labels)
-  exit_status = 1
 
   if exit_status == 1:
     print('Original image -  classification: ' + str(original_classification) + ', confidence: ' + str(original_confidence))
@@ -319,7 +303,7 @@ if run == 1:
     perturbed_wav_tensor = calc_wav_coeffs_tensor_from_image_tensor(perturbed_img_tensor, levels)
 
     original_wav_pil = get_image_from_tensor(original_wav_tensor)
-    mask_wav_pil = get_image_from_tensor(mask_wav_tensor)
+    mask_wav_pil = get_image_from_tensor(mask_wav_tensor*mask_img_tensor)
     perturbed_wav_pil = get_image_from_tensor(perturbed_wav_tensor)
 
     plot_images_sbs(original_wav_pil, mask_wav_pil, perturbed_wav_pil, original_classification, perturbed_classification, mask_image_enhance, 2)
