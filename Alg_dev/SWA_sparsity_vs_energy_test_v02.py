@@ -28,10 +28,10 @@ levels = 4 # (5 is limit) Due to he fact we scale all images to be 3 x 256 x256
 channel_means = [0.485, 0.456, 0.406]
 channel_stds = [0.229, 0.224, 0.225]
 
-K_max = 2000
-K_min = 25
-numb_tests = 100
-K_step = int((K_max-K_min)/numb_tests)
+# K_max = 2000
+# K_min = 25
+# numb_tests = 100
+# K_step = int((K_max-K_min)/numb_tests)
 
 mask_image_enhance = 100
 steps = 1000
@@ -292,11 +292,11 @@ def classify_image(img_tensor, classifier, labels):
 labels = eval(open('classes.txt').read())
 
 # LOAD IN IMAGE TO PROCESS
-run = 1
-
 original_img_pil, original_img_tensor, original_img_tensor_norm = load_image(img_path)
 
-K_span = np.arange(K_min, K_max, K_step)
+# K_span = np.arange(K_min, K_max, K_step)
+
+K_span = [25, 50, 100, 200, 300, 400, 500, 750, 1000, 2500, 5000, 7500, 10000, 25000, 50000]
 mask_energies = np.zeros(len(K_span))
 attack_success_record = np.zeros(len(K_span))
 i = 0
@@ -308,7 +308,7 @@ for iter in K_span:
 	i = i+1
 
 data=np.stack((K_span, mask_energies, attack_success_record), axis=0)
-np.save('mask_sparsity_vs_energy', data)
+np.save('mask_sparsity_vs_energy_2', data)
 
 
 colors =[]

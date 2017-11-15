@@ -5,7 +5,7 @@ import pickle
 
 img_path = 'car.png'
 step_alpha = 0.05
-steps = 5000
+steps = 1000
 levels = 4
 
 
@@ -27,7 +27,7 @@ for i in range(len(K_span)):
 
 
 plt.scatter(K_span, mask_energies*100, c=colors, cmap=matplotlib.colors.ListedColormap(colors))
-plt.suptitle('Energy vs sparsity of mask that resulted in misclassification', fontsize=14, fontweight='bold')
+plt.suptitle('Energy vs sparsity of mask (red = attack unsuccessful, blue = attack successful)', fontsize=14, fontweight='bold')
 plt.title('Levels = ' + str(levels) + ', Image = ' + str(img_path) + ', Step size = ' + str(step_alpha) + ', Max number of steps = ' + str(steps))
 plt.xlabel('Sparsity K')
 plt.ylabel('l2 Energy ratio Mask/Original (%)')
