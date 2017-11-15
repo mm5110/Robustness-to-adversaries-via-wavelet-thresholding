@@ -34,7 +34,7 @@ numb_tests = 100
 K_step = int((K_max-K_min)/numb_tests)
 
 mask_image_enhance = 100
-steps = 5000
+steps = 1000
 eps = 2 * 8 / 225
 step_alpha = 0.05
 
