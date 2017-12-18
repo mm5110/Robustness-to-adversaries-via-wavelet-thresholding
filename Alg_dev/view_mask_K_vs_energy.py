@@ -9,7 +9,7 @@ steps = 1000
 levels = 4
 
 
-loaded_data = np.load('mask_sparsity_vs_energy.npy')
+loaded_data = np.load('mask_sparsity_vs_energy_2.npy')
 # loaded_params = np.load('mask_sparsity_vs_energy_params.npy')
 
 K_span = loaded_data[0]

@@ -311,20 +311,20 @@ data=np.stack((K_span, mask_energies, attack_success_record), axis=0)
 np.save('mask_sparsity_vs_energy_2', data)
 
 
-colors =[]
-for i in range(len(K_span)):
-	if attack_success_record[i] == 0:
-		colors.append('red')
-	else:
-		colors.append('blue')
+# colors =[]
+# for i in range(len(K_span)):
+# 	if attack_success_record[i] == 0:
+# 		colors.append('red')
+# 	else:
+# 		colors.append('blue')
 
 
-plt.scatter(K_span, mask_energies*100, c=colors, cmap=matplotlib.colors.ListedColormap(colors))
-plt.suptitle('Energy vs sparsity of mask that resulted in misclassification', fontsize=14, fontweight='bold')
-plt.title('Levels = ' + str(levels) + ', Image = ' + str(img_path) + ', Step size = ' + str(step_alpha) + ', Max number of steps = ' + str(steps))
-plt.xlabel('Sparsity K')
-plt.ylabel('l2 Energy ratio Mask/Original (%)')
-plt.show()
+# plt.scatter(K_span, mask_energies*100, c=colors, cmap=matplotlib.colors.ListedColormap(colors))
+# plt.suptitle('Energy vs sparsity of mask that resulted in misclassification', fontsize=14, fontweight='bold')
+# plt.title('Levels = ' + str(levels) + ', Image = ' + str(img_path) + ', Step size = ' + str(step_alpha) + ', Max number of steps = ' + str(steps))
+# plt.xlabel('Sparsity K')
+# plt.ylabel('l2 Energy ratio Mask/Original (%)')
+# plt.show()
 
 
 
